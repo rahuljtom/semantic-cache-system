@@ -1,122 +1,41 @@
-# Semantic Search System with Fuzzy Clustering and Semantic Cache
+# Semantic Cache System
 
-This project implements a lightweight semantic search system built on the 20 Newsgroups dataset.
+A research prototype for semantic retrieval and cache reuse over the 20 Newsgroups dataset. It combines sentence embeddings, probabilistic clustering, FAISS nearest-neighbor search, and a similarity threshold to explore when a previously cached result can serve a differently worded query.
 
-The system demonstrates how semantic embeddings, fuzzy clustering, and a cluster-aware semantic cache can be combined to efficiently answer natural language queries.
+**Stack:** Python · sentence-transformers · scikit-learn · FAISS
 
----
+## Query flow
 
-## System Architecture
-
+```text
 Query
-→ Embedding Model
-→ Cluster Assignment
-→ Semantic Cache Lookup
-→ Vector Search (FAISS on cache miss)
-→ Response
+  → embedding
+  → Gaussian mixture cluster assignment
+  → cluster-scoped cache lookup
+  → FAISS retrieval on cache miss
+  → response
+```
 
----
+The embedding model is `sentence-transformers/all-MiniLM-L6-v2`. Gaussian Mixture Models produce a distribution over clusters; the dominant cluster scopes the cache lookup. A cosine-similarity threshold (0.85 in the current prototype) controls whether a cached result is reused.
 
-## Embedding Model
+## API
 
-We use the model:
+- `POST /query` — accept a natural-language query; response includes cache status, similarity score, and cluster information
+- `GET /cache/stats` — inspect cache statistics
+- `DELETE /cache` — clear the cache
 
-sentence-transformers/all-MiniLM-L6-v2
+Example:
 
-This model provides high-quality semantic embeddings while remaining computationally efficient for real-time search.
+```json
+{"query":"space exploration missions"}
+```
 
----
+## Run locally
 
-## Vector Database
-
-The system uses **FAISS** for similarity search over document embeddings.
-
-FAISS allows efficient nearest-neighbor retrieval across ~20,000 documents.
-
----
-
-## Fuzzy Clustering
-
-The system uses **Gaussian Mixture Models (GMM)** instead of KMeans.
-
-GMM produces **probability distributions over clusters** rather than assigning documents to a single cluster.
-
-Example cluster distribution:
-
-Cluster 3 → 0.61  
-Cluster 7 → 0.22  
-Cluster 12 → 0.09  
-
-This reflects the overlapping semantic structure of the dataset.
-
----
-
-## Semantic Cache
-
-Traditional caches fail when queries are phrased differently.
-
-This system implements a **semantic cache**.
-
-Process:
-
-1. Query is embedded
-2. Dominant cluster is determined
-3. Cache is searched only within that cluster
-4. Cosine similarity detects semantically similar queries
-
-If similarity exceeds the threshold (0.85), the cached result is reused.
-
----
-
-## Tunable Parameter
-
-Semantic similarity threshold:
-
-0.85
-
-Lower values increase cache hit rate but risk incorrect reuse.
-
-Higher values reduce incorrect matches but lower cache efficiency.
-
----
-
-## API Endpoints
-
-POST /query
-
-Example request:
-
-{
-  "query": "space exploration missions"
-}
-
-Response includes:
-
-- cache_hit
-- similarity_score
-- dominant_cluster
-- cluster_distribution
-
----
-
-GET /cache/stats
-
-Returns cache statistics.
-
----
-
-DELETE /cache
-
-Clears the cache.
-
----
-
-## Running the Project
-
-Install dependencies:
-
+```bash
 pip install -r requirements.txt
-
-Start the API server:
-
 uvicorn app.main:app --reload
+```
+
+## Scope
+
+This is a small experimental project, not a production vector database or a general-purpose semantic cache. The threshold is tunable: lowering it can increase reuse while increasing the risk of a false match. The idea is also being explored as a cache layer for the [LLM Inference Gateway](https://github.com/rahuljtom/llm-inference-gateway).
